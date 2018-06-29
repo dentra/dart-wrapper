@@ -1,7 +1,7 @@
 # Wraps Dart executables like gradlew or mvnw.
 
 ## Installation
-Download `pubw` into the root of your project directory beside to `pubspec.yaml` location.
+Download `pubw` (https://github.com/dentra/dart-wrapper/raw/master/pubw) into the root of your project directory beside to `pubspec.yaml` location.
 
 Make `pubw` executable by command:
 ```bash
