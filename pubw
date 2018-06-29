@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+
+# command to run
+command=pub
+# directory with dart sdk distributions
+dist_dir=~/.dart/dist
+# make dist directory available
+mkdir -p "$dist_dir"
+# wrapper location
+wrapper="$dist_dir/wrapper"
+# current date
+now=$(date +%Y-%m-%d)
+# checks wrapper marker and redownload it once a day
+if ! [ -f "$wrapper.$now" ]; then
+  # remove all other markers
+  rm -f "$wrapper.*"
+  # download wrapper
+  curl -s -L -f "https://github.com/dentra/dart-wrapper/raw/master/wrapper" -o "$wrapper"
+  # checks that downloaded succesfully 
+  if ! [ "$?" == "0" ]; then
+    echo "Dart Wrapper executable is unavailable. Please check network."
+    exit 1 
+  fi
+  # put new marker
+  touch "$wrapper.$now"
+  # make wrapper executable
+  chmod +x "$wrapper"
+fi
+# execute command
+exec "$wrapper" "$command" $*

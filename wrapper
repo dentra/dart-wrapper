@@ -1,0 +1,183 @@
+#!/usr/bin/env bash
+
+# directory with dart sdk distributions
+dist_dir=~/.dart/dist
+
+exec=$1
+shift
+
+# first check argument for force version flag "-f"
+if ! [ "$1" == "-f" ]; then
+  # try to find executable
+  exec_path=$(command -v "$exec")
+  if ! [ -x "$exec_path" ]; then
+    # also look at DART_SDK variable
+    if [ -z "$DART_SDK" ]; then
+      exec_path="$DART_SDK/bin/$exec"
+    fi
+  fi
+  # just run if executable installed locally
+  if [ -x "$exec_path" ]; then
+    exec "$exec_path" $*
+  fi
+else
+  # remove force version flag
+  shift
+  # version string latest or latest-dev
+  release=$1
+  # remove release string
+  shift
+fi
+
+# Read YAML file from Bash script
+# Credits: https://gist.github.com/pkuczynski/8665367
+parse_yaml() {
+   local prefix=$2
+   local s='[[:space:]]*' w='[a-zA-Z0-9_]*' fs=$(echo @|tr @ '\034')
+   sed -ne "s|^\($s\)\($w\)$s:$s\"\(.*\)\"$s\$|\1$fs\2$fs\3|p" \
+        -e "s|^\($s\)\($w\)$s:$s\(.*\)$s\$|\1$fs\2$fs\3|p" $1 |
+   awk -F$fs '{
+      indent = length($1)/2;
+      vname[indent] = $2;
+      for (i in vname) {if (i > indent) {delete vname[i]}}
+      if (length($3) > 0) {
+         vn=""; for (i=0; i<indent; i++) {vn=(vn)(vname[i])("_")}
+         printf("%s%s%s=\"%s\"\n", "'$prefix'",vn, $2, $3);
+      }
+   }'
+}
+
+# returns macos or linux string based on os type
+function platform()
+{
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    echo 'macos'
+  else
+    echo 'linux'
+  fi
+}
+
+# returns x64 or ia32 string based on processor architecture
+function architecture()
+{
+  if [[ "$(uname -m)" == "x86_64" ]]; then
+    echo 'x64'
+  else
+    echo 'ia32'
+  fi
+}
+
+# returns stable or dev string based on release passed as argument
+function channel()
+{
+  if [[ $1 = *"-dev"* ]]; then
+    echo 'dev'
+  else
+    echo 'stable'
+  fi
+}
+
+# returns latest release string from dart sdk archive based on channel passed as argument
+function latest()
+{
+  local channel=$1
+  local now=$(date +%Y-%m-%d)
+  local prefix="${dist_dir}/latest-${channel}-"
+  local latest="${prefix}${now}"
+  if ! [ -f ${latest} ]; then
+    rm -f "${prefix}*"
+    curl -s "https://storage.googleapis.com/dart-archive/channels/${channel}/release/latest/VERSION" | \
+      python -c "import sys, json; print json.load(sys.stdin)['version']">${latest}
+  fi
+  cat ${latest}
+}
+
+# returns release string based on sdk string from pubspec.yaml.
+# at not it only detects stable or dev channel and request latest information for it.
+# parameters
+#   $1 - sdk version string or latest or latest-dev
+#   $2 - channel string or none
+function release()
+{
+  local release=$1
+  local channel=$2
+  if [ -z "$channel" ]; then
+    local channel=$(channel ${release})
+  fi
+  if [ "$release" == "latest-dev" ]; then
+    release='latest'
+  fi
+  if [ "$release" == "latest" ]; then
+    echo $(latest ${channel})
+  else
+    case "$release" in
+      ">="*)
+        release=(${release:2})
+        ;;
+      ">"*)
+        release=(${release:1})
+        ;;
+      "^"*)
+        release=(${release:1})
+        ;;
+      *)
+      ;;
+    esac
+    echo "$release"
+  fi
+}
+
+# make dist directory available
+mkdir -p "$dist_dir"
+
+if [ -z "$release" ] || [ "$release" == "auto" ]; then
+  # read yaml file into pubspec_ prefixed variables
+  eval $(parse_yaml pubspec.yaml "pubspec_")
+
+  # remove double quotes around if exists
+  pubspec_environment_sdk="${pubspec_environment_sdk%\"}"
+  pubspec_environment_sdk="${pubspec_environment_sdk#\"}"
+
+  # remove single quotes around if exists
+  pubspec_environment_sdk="${pubspec_environment_sdk%\'}"
+  pubspec_environment_sdk="${pubspec_environment_sdk#\'}"
+
+  release="$pubspec_environment_sdk"
+fi
+
+# detect channel
+channel=$(channel ${release})
+# detect release
+release=$(release ${release} ${channel})
+
+echo "Using Dart SDK version: $release"
+
+release_dir="${dist_dir}/${release}"
+sdk_zip_name="dartsdk-$(platform)-$(architecture)-release.zip"
+sdk_zip="${release_dir}/${sdk_zip_name}"
+sdk_sum="$sdk_zip.sha256sum"
+
+sdk_chk="${sdk_zip}"
+if [ -x "$(command -v shasum)" ]; then
+  sdk_chk="${sdk_sum}"
+fi
+
+if ! [ -f "${sdk_sum}" ]; then
+  mkdir "${release_dir}"
+  sdk_url="https://storage.googleapis.com/dart-archive/channels/${channel}/release/${release}/sdk/${sdk_zip_name}"
+  echo "Downloading $sdk_url"
+  curl --progress-bar "${sdk_url}" -o "${sdk_zip}"
+  if [ -x "$(command -v shasum)" ]; then
+    curl -s "${sdk_url}.sha256sum" -o "$sdk_sum"
+    pushd "${release_dir}"
+    shasum -c "$sdk_sum" -s
+    if ! [ "$?" == "0" ]; then
+      echo "Checksum of downloaded file is incorrect"
+      rm -f "$sdk_sum"
+    fi
+    popd
+  fi
+  unzip -q "$sdk_zip" -d "$release_dir"
+fi
+
+exec "${release_dir}/dart-sdk/bin/$exec" $*
