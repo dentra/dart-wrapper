@@ -3,6 +3,11 @@
 ## Installation
 Download `pubw` into the root of your project directory beside to `pubspec.yaml` location.
 
+Make `pubw` executable by command:
+```bash
+$ chmod +x pubw
+```
+
 ## Running
 You can run command with explicit version of Dart SDK with -f switch as first parameter and version string as second. Version string may be:
  * explicit version for example 1.3.24 
