@@ -19,26 +19,26 @@ Examples:
 
 Run `pub` command with Dart SDK 1.3.24:
 ```bash
-    $./pubw -f 1.3.24 get
+$ ./pubw -f 1.3.24 get
 ```
 
 Run `pub` command with latest Dart SDK stable channel:
 ```bash
-    $./pubw -f latest get
+$ ./pubw -f latest get
 ```
 
 Run `pub` command witdh Dart SDK dev channel:
 ```bash
-    $./pubw -f latest-dev get
+$ ./pubw -f latest-dev get
 ```
 
 Run `pub` command witdh Dart SDK and version detected from `pubspec.yaml` automaticaly:
 ```bash
-    $./pubw -f auto get
+$ ./pubw -f auto get
 ```
 
 Run `pub` command witdh Dart SDK and version detected path, if not found from, look in path 
 specified in `DART_SDK` environment variable, and if not found again detects from `pubspec.yaml` automaticaly:
 ```bash
-    $./pubw get
+    $ ./pubw get
 ```
