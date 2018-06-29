@@ -40,5 +40,5 @@ $ ./pubw -f auto get
 Run `pub` command witdh Dart SDK and version detected path, if not found from, look in path 
 specified in `DART_SDK` environment variable, and if not found again detects from `pubspec.yaml` automaticaly:
 ```bash
-    $ ./pubw get
+$ ./pubw get
 ```
